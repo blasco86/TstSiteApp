@@ -2,6 +2,7 @@ package org.tstsite.tstsiteapp.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 // ==================== AUTH ====================
 
@@ -64,9 +65,9 @@ data class ValidateResponse(
 
 @Serializable
 data class TokenPayload(
-    val sub: Int,
-    val username: String,
-    val role: String,
+    val sub: Int? = null,
+    val username: String? = null,
+    val role: String? = null,
     val iat: Long,
     val exp: Long,
     val jti: String,
@@ -163,7 +164,7 @@ data class Producto(
     val id: Int,
     val nombre: String,
     val slug: String? = null,
-    val atributos: Map<String, String> = emptyMap()
+    val atributos: Map<String, JsonElement> = emptyMap()
 )
 
 // ==================== COMMON ====================
