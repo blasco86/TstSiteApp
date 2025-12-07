@@ -5,12 +5,8 @@ import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Uint8Array
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.js.Promise
-import kotlin.js.JsAny
-import kotlin.js.JsArray
-import kotlin.js.JsString
-import kotlin.js.unsafeCast
 
-// Declaraciones externas para la Web Crypto API en Kotlin/JS
+// Declaraciones externas para Web Crypto API
 external val crypto: Crypto
 
 external interface Crypto {
@@ -21,19 +17,19 @@ external interface SubtleCrypto {
     fun importKey(
         format: String,
         keyData: Uint8Array,
-        algorithm: JsAny,
+        algorithm: dynamic,
         extractable: Boolean,
-        keyUsages: JsArray<JsString>
+        keyUsages: Array<String>
     ): Promise<CryptoKey>
 
     fun sign(
-        algorithm: JsAny,
+        algorithm: dynamic,
         key: CryptoKey,
         data: Uint8Array
     ): Promise<ArrayBuffer>
 
     fun decrypt(
-        algorithm: JsAny,
+        algorithm: dynamic,
         key: CryptoKey,
         data: Uint8Array
     ): Promise<ArrayBuffer>
@@ -85,57 +81,60 @@ actual class Cryptor actual constructor(fernetKey: String) : BaseCryptor(fernetK
 
     private suspend fun computeHmacSha256(data: ByteArray, key: ByteArray): ByteArray {
         val subtle = crypto.subtle
-        val keyPromise = subtle.importKey(
+
+        val keyResult = subtle.importKey(
             "raw",
             key.toUint8Array(),
             js("({ name: 'HMAC', hash: 'SHA-256' })"),
             false,
-            js("(['sign'])")
-        )
-        val resolvedKey = keyPromise.await()
-        val signaturePromise = subtle.sign(
-            "HMAC",
-            resolvedKey,
+            arrayOf("sign")
+        ).await()
+
+        val signatureBuffer = subtle.sign(
+            js("({ name: 'HMAC' })"),
+            keyResult,
             data.toUint8Array()
-        )
-        return signaturePromise.await().toByteArray()
+        ).await()
+
+        return signatureBuffer.toByteArray()
     }
 
     private suspend fun decryptAesCbc(ciphertext: ByteArray, key: ByteArray, iv: ByteArray): String {
         val subtle = crypto.subtle
-        val resolvedKey = subtle.importKey(
+
+        val keyResult = subtle.importKey(
             "raw",
             key.toUint8Array(),
-            js("{ name: 'AES-CBC' }"),
+            js("({ name: 'AES-CBC' })"),
             false,
-            js("['decrypt']")
+            arrayOf("decrypt")
         ).await()
 
-        //val ivArray = iv.toUint8Array()
-        val algorithm = js("{ name: 'AES-CBC', iv: ivArray }")
-
-        val decryptedPromise = subtle.decrypt(
-            algorithm,
-            resolvedKey,
+        val ivArray = iv.toUint8Array()
+        val decryptedBuffer = subtle.decrypt(
+            js("({ name: 'AES-CBC', iv: ivArray })"),
+            keyResult,
             ciphertext.toUint8Array()
-        )
-        return decryptedPromise.await().toByteArray().decodeToString()
-    }
-}
+        ).await()
 
-private fun ByteArray.toUint8Array(): Uint8Array {
-    val uint8Array = Uint8Array(this.size)
-    for (i in this.indices) {
-        uint8Array.asDynamic()[i] = (this[i].toInt() and 0xFF)
+        return decryptedBuffer.toByteArray().decodeToString()
     }
-    return uint8Array
-}
 
-private fun ArrayBuffer.toByteArray(): ByteArray {
-    val uint8Array = Uint8Array(this)
-    val byteArray = ByteArray(uint8Array.length)
-    for (i in 0 until uint8Array.length) {
-        byteArray[i] = uint8Array.asDynamic()[i].unsafeCast<Int>().toByte()
+    // Helpers de conversión
+    private fun ByteArray.toUint8Array(): Uint8Array {
+        val uint8Array = Uint8Array(this.size)
+        for (i in this.indices) {
+            uint8Array.asDynamic()[i] = (this[i].toInt() and 0xFF)
+        }
+        return uint8Array
     }
-    return byteArray
+
+    private fun ArrayBuffer.toByteArray(): ByteArray {
+        val uint8Array = Uint8Array(this)
+        val byteArray = ByteArray(uint8Array.length)
+        for (i in 0 until uint8Array.length) {
+            byteArray[i] = uint8Array.asDynamic()[i].unsafeCast<Int>().toByte()
+        }
+        return byteArray
+    }
 }
