@@ -18,7 +18,7 @@ object AppConfig {
 
     // ---------- ENTORNOS ----------
     // true = usar DEV, false = usar TST
-    private const val IS_DEV = true
+    private const val IS_DEV = false
 
     private const val SERVICE = "api"
 

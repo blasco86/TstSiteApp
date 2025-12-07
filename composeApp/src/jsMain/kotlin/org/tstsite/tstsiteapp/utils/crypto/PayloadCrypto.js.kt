@@ -4,23 +4,17 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Uint8Array
-// Eliminadas: importaciones directas de TextDecoder y TextEncoder
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
-import kotlin.js.ExperimentalWasmJsInterop
-// import kotlin.js.getGlobalThis // Importada explícitamente - Reemplazada por globalThis
 
-/**
- * Constantes de encriptación
- */
 private const val IV_LENGTH = 12
 private const val SALT_LENGTH = 32
 private const val KEY_LENGTH = 32
 private const val PBKDF2_ITERATIONS = 100000
-private const val AUTH_TAG_LENGTH_BITS = 128 // 16 bytes * 8 bits/byte
+private const val AUTH_TAG_LENGTH_BITS = 128
 
 @OptIn(ExperimentalEncodingApi::class)
-@Suppress("unused") // Suprime la advertencia de que PayloadCrypto no se usa
+@Suppress("unused")
 actual object PayloadCrypto {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -28,141 +22,136 @@ actual object PayloadCrypto {
     }
 
     actual suspend fun <T> encrypt(serializer: KSerializer<T>, data: T, secretKey: String): String {
-        // Serializar a JSON
-        val jsonString = json.encodeToString(serializer, data)
-        // Acceder a TextEncoder a través del objeto global
-        val plaintext = js("new TextEncoder()").encode(jsonString).toByteArray()
+        try {
+            val jsonString = json.encodeToString(serializer, data)
+            console.log("🔐 Encriptando JSON:", jsonString)
 
-        // Generar salt e IV aleatorios
-        val salt = randomBytes(SALT_LENGTH)
-        val iv = randomBytes(IV_LENGTH)
+            val plaintext = js("new TextEncoder()").encode(jsonString).toByteArray()
+            val salt = randomBytes(SALT_LENGTH)
+            val iv = randomBytes(IV_LENGTH)
+            val key = deriveKey(secretKey.encodeToByteArray(), salt)
+            val ciphertext = encryptAESGCM(plaintext, key, iv)
+            val combined = salt + iv + ciphertext
 
-        // Derivar clave
-        val key = deriveKey(js("new TextEncoder()").encode(secretKey).toByteArray(), salt)
-
-        // Encriptar
-        val ciphertext = encryptAESGCM(plaintext, key, iv)
-
-        // Combinar: salt + iv + ciphertext
-        val combined = salt + iv + ciphertext
-
-        return Base64.encode(combined)
+            return Base64.encode(combined)
+        } catch (e: Exception) {
+            console.error("❌ Error en encrypt:", e.message)
+            throw e
+        }
     }
 
     actual suspend fun <T> decrypt(deserializer: KSerializer<T>, encryptedData: String, secretKey: String): T {
-        // Decodificar Base64
-        val buffer = Base64.decode(encryptedData)
+        try {
+            val buffer = Base64.decode(encryptedData)
+            val salt = buffer.sliceArray(0 until SALT_LENGTH)
+            val iv = buffer.sliceArray(SALT_LENGTH until SALT_LENGTH + IV_LENGTH)
+            val ciphertext = buffer.sliceArray(SALT_LENGTH + IV_LENGTH until buffer.size)
 
-        // Extraer componentes
-        val salt = buffer.sliceArray(0 until SALT_LENGTH)
-        val iv = buffer.sliceArray(SALT_LENGTH until SALT_LENGTH + IV_LENGTH)
-        val ciphertext = buffer.sliceArray(SALT_LENGTH + IV_LENGTH until buffer.size)
+            val key = deriveKey(secretKey.encodeToByteArray(), salt)
+            val plaintext = decryptAESGCM(ciphertext, key, iv)
+            val jsonString = js("new TextDecoder()").decode(plaintext.toUint8Array()) as String
 
-        // Derivar clave
-        val key = deriveKey(js("new TextEncoder()").encode(secretKey).toByteArray(), salt)
-
-        // Desencriptar
-        val plaintext = decryptAESGCM(ciphertext, key, iv)
-        // Acceder a TextDecoder a través del objeto global
-        val jsonString = js("new TextDecoder()").decode(plaintext.toUint8Array())
-
-        // Deserializar
-        return json.decodeFromString(deserializer, jsonString)
+            console.log("🔓 JSON desencriptado:", jsonString)
+            return json.decodeFromString(deserializer, jsonString)
+        } catch (e: Exception) {
+            console.error("❌ Error en decrypt:", e.message)
+            throw e
+        }
     }
 
     actual fun randomBytes(length: Int): ByteArray {
         val array = Uint8Array(length)
-        // Acceder a window.crypto globalmente
-        js("globalThis").asDynamic().crypto.getRandomValues(array)
+        js("crypto").getRandomValues(array)
         return array.toByteArray()
     }
 
     actual suspend fun deriveKey(password: ByteArray, salt: ByteArray): ByteArray {
-        // Acceso dinámico a subtle para evitar problemas de interfaz
-        val subtleDynamic = js("globalThis").asDynamic().crypto.subtle
+        try {
+            val subtle = js("crypto.subtle")
 
-        val passwordKey = subtleDynamic.importKey(
-            "raw",
-            password.toUint8Array(),
-            js("({ name: 'PBKDF2' })"),
-            false,
-            arrayOf("deriveBits")
-        ).await()
+            val passwordKey = subtle.importKey(
+                "raw",
+                password.toUint8Array(),
+                js("({ name: 'PBKDF2' })"),
+                false,
+                js("(['deriveBits'])")
+            ).await()
 
-        val derivedBits = subtleDynamic.deriveBits(
-            js("({ name: 'PBKDF2', salt: salt.toUint8Array(), iterations: $PBKDF2_ITERATIONS, hash: 'SHA-256' })"),
-            passwordKey,
-            KEY_LENGTH * 8 // length in bits
-        ).await()
+            val saltArray = salt.toUint8Array()
+            val derivedBits = subtle.deriveBits(
+                js("({ name: 'PBKDF2', salt: saltArray, iterations: $PBKDF2_ITERATIONS, hash: 'SHA-256' })"),
+                passwordKey,
+                KEY_LENGTH * 8
+            ).await()
 
-        return derivedBits.toByteArray()
+            return (derivedBits as ArrayBuffer).toByteArray()
+        } catch (e: Exception) {
+            console.error("❌ Error en deriveKey:", e.message)
+            throw e
+        }
     }
 
-    private fun encryptAESGCM(
-        plaintext: ByteArray,
-        key: ByteArray,
-        iv: ByteArray
-    ): ByteArray {
-        // Acceso dinámico a subtle para evitar problemas de interfaz
-        val subtleDynamic = js("globalThis").asDynamic().crypto.subtle
+    private suspend fun encryptAESGCM(plaintext: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
+        try {
+            val subtle = js("crypto.subtle")
 
-        // Importar clave
-        val cryptoKey = subtleDynamic.importKey(
-            "raw",
-            key.toUint8Array(),
-            js("({ name: 'AES-GCM' })"),
-            false,
-            arrayOf("encrypt")
-        ).await()
+            val cryptoKey = subtle.importKey(
+                "raw",
+                key.toUint8Array(),
+                js("({ name: 'AES-GCM' })"),
+                false,
+                js("(['encrypt'])")
+            ).await()
 
-        // Encriptar
-        val encryptedBuffer = subtleDynamic.encrypt(
-            js("({ name: 'AES-GCM', iv: iv.toUint8Array(), tagLength: $AUTH_TAG_LENGTH_BITS })"),
-            cryptoKey,
-            plaintext.toUint8Array()
-        ).await()
+            val ivArray = iv.toUint8Array()
+            val encryptedBuffer = subtle.encrypt(
+                js("({ name: 'AES-GCM', iv: ivArray, tagLength: $AUTH_TAG_LENGTH_BITS })"),
+                cryptoKey,
+                plaintext.toUint8Array()
+            ).await()
 
-        return encryptedBuffer.toByteArray()
+            return (encryptedBuffer as ArrayBuffer).toByteArray()
+        } catch (e: Exception) {
+            console.error("❌ Error en encryptAESGCM:", e.message)
+            throw e
+        }
     }
 
-    private fun decryptAESGCM(
-        ciphertext: ByteArray,
-        key: ByteArray,
-        iv: ByteArray
-    ): ByteArray {
-        // Acceso dinámico a subtle para evitar problemas de interfaz
-        val subtleDynamic = js("globalThis").asDynamic().crypto.subtle
+    private suspend fun decryptAESGCM(ciphertext: ByteArray, key: ByteArray, iv: ByteArray): ByteArray {
+        try {
+            val subtle = js("crypto.subtle")
 
-        // Importar clave
-        val cryptoKey = subtleDynamic.importKey(
-            "raw",
-            key.toUint8Array(),
-            js("({ name: 'AES-GCM' })"),
-            false,
-            arrayOf("decrypt")
-        ).await()
+            val cryptoKey = subtle.importKey(
+                "raw",
+                key.toUint8Array(),
+                js("({ name: 'AES-GCM' })"),
+                false,
+                js("(['decrypt'])")
+            ).await()
 
-        // Desencriptar
-        val decryptedBuffer = subtleDynamic.decrypt(
-            js("({ name: 'AES-GCM', iv: iv.toUint8Array(), tagLength: $AUTH_TAG_LENGTH_BITS })"),
-            cryptoKey,
-            ciphertext.toUint8Array()
-        ).await()
+            val ivArray = iv.toUint8Array()
+            val decryptedBuffer = subtle.decrypt(
+                js("({ name: 'AES-GCM', iv: ivArray, tagLength: $AUTH_TAG_LENGTH_BITS })"),
+                cryptoKey,
+                ciphertext.toUint8Array()
+            ).await()
 
-        return decryptedBuffer.toByteArray()
+            return (decryptedBuffer as ArrayBuffer).toByteArray()
+        } catch (e: Exception) {
+            console.error("❌ Error en decryptAESGCM:", e.message)
+            throw e
+        }
     }
 
-    // Helper functions for ByteArray <-> Uint8Array conversion
-    @OptIn(ExperimentalWasmJsInterop::class)
+    // Helpers de conversión
     private fun ByteArray.toUint8Array(): Uint8Array {
         val uint8Array = Uint8Array(this.size)
-        for (i in 0 until this.size) {
-            uint8Array.asDynamic()[i] = this[i].toInt() and 0xFF // Ensure it's a positive byte value
+        for (i in this.indices) {
+            uint8Array.asDynamic()[i] = (this[i].toInt() and 0xFF)
         }
         return uint8Array
     }
 
-    @OptIn(ExperimentalWasmJsInterop::class)
     private fun Uint8Array.toByteArray(): ByteArray {
         val byteArray = ByteArray(this.length)
         for (i in 0 until this.length) {
@@ -171,8 +160,6 @@ actual object PayloadCrypto {
         return byteArray
     }
 
-    // For ArrayBuffer.toByteArray()
-    @OptIn(ExperimentalWasmJsInterop::class)
     private fun ArrayBuffer.toByteArray(): ByteArray {
         return Uint8Array(this).toByteArray()
     }
