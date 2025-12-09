@@ -10,7 +10,7 @@ object AppConfig {
     // 🔐 FLAG GLOBAL DE ENCRIPTACIÓN
     // true = usar encriptación de payloads (debe coincidir con la API)
     // false = enviar datos sin encriptar (recomendado para desarrollo)
-    const val ENCRYPTION_ENABLED = false
+    const val ENCRYPTION_ENABLED = true
 
     suspend fun getApiKey(): String {
         return cryptor.decryptValue(ENCRYPTED_API_KEY)
