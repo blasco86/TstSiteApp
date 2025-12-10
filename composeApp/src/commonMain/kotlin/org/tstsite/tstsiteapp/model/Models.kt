@@ -175,3 +175,6 @@ data class ApiError(
     val mensaje: String,
     val detalle: String? = null
 )
+
+@Serializable
+class EmptyRequest
