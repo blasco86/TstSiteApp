@@ -1,71 +1,60 @@
 package org.tstsite.tstsiteapp.network
 
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
 import org.tstsite.tstsiteapp.config.AppConfig
 import org.tstsite.tstsiteapp.model.*
 
 actual class ApiClient actual constructor() {
-    private val client = HttpClient {
-        install(ContentNegotiation) {
-            json(Json {
-                ignoreUnknownKeys = true
-                prettyPrint = true
-                isLenient = true
-            })
-        }
-        install(Logging) {
-            level = LogLevel.ALL
-        }
-    }
+    private val client = ApiClientHelper.createHttpClient()
 
     // ==================== AUTH ====================
-
     actual suspend fun login(pLogin: SesionRequest): SesionResponse {
         return try {
-            val response: LoginResponseWrapper = client.post(AppConfig.getApiLoginUrl(true)) {
-                contentType(ContentType.Application.Json)
-                headers.append("x-api-key", AppConfig.getApiKey())
-                setBody(pLogin)
-            }.body()
+            val url = AppConfig.getApiLoginUrl(true) // isAndroid = true
+            val apiKey = AppConfig.getApiKey()
 
-            if (response.resultado == "error") {
-                throw Exception(response.mensaje ?: "Error de inicio de sesión desconocido")
+            println("🚀 [Android] Login a: $url")
+
+            // 1. Encriptar request si está habilitado
+            val body = ApiClientHelper.encryptRequestIfEnabled(
+                pLogin,
+                SesionRequest.serializer()
+            )
+
+            // 2. Enviar request
+            val response: HttpResponse = client.post(url) {
+                contentType(ContentType.Application.Json)
+                headers.append("x-api-key", apiKey)
+                setBody(body)
             }
 
-            val user = UsuarioLogin(
-                idUsuario = response.idUsuario ?: throw Exception("idUsuario no encontrado en la respuesta"),
-                usuario = response.usuario ?: throw Exception("usuario no encontrado en la respuesta"),
-                perfil = response.perfil ?: throw Exception("perfil no encontrado en la respuesta"),
-                estado = response.estado ?: throw Exception("estado no encontrado en la respuesta"),
-                permisos = response.permisos,
-                detalles = response.detalles
+            // 3. Desencriptar response si es necesario
+            val responseText = response.bodyAsText()
+            val wrapper = ApiClientHelper.decryptResponseIfNeeded(
+                responseText,
+                LoginResponseWrapper.serializer()
             )
 
-            SesionResponse(
-                token = response.token ?: throw Exception("Token no encontrado en la respuesta"),
-                expiresIn = response.expiresIn ?: throw Exception("expiresIn no encontrado en la respuesta"),
-                user = user
-            )
+            ApiClientHelper.buildSesionResponse(wrapper)
         } catch (e: Exception) {
-            throw Exception("El servicio no está disponible: ${e.message}")
+            throw Exception("Error en login: ${e.message}")
         }
     }
 
     actual suspend fun validate(token: String): ValidateResponse {
         return try {
-            client.post(AppConfig.getApiValidateUrl(true)) {
+            val response: HttpResponse = client.post(AppConfig.getApiValidateUrl(true)) {
                 contentType(ContentType.Application.Json)
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-            }.body()
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                ValidateResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error al validar token: ${e.message}")
         }
@@ -73,10 +62,15 @@ actual class ApiClient actual constructor() {
 
     actual suspend fun profile(token: String): ProfileResponse {
         return try {
-            client.get(AppConfig.getApiProfileUrl(true)) {
+            val response: HttpResponse = client.get(AppConfig.getApiProfileUrl(true)) {
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-            }.body()
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                ProfileResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error al obtener perfil: ${e.message}")
         }
@@ -84,18 +78,22 @@ actual class ApiClient actual constructor() {
 
     actual suspend fun logout(token: String): LogoutResponse {
         return try {
-            client.post(AppConfig.getApiLogoutUrl(true)) {
+            val response: HttpResponse = client.post(AppConfig.getApiLogoutUrl(true)) {
                 contentType(ContentType.Application.Json)
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-            }.body()
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                LogoutResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error al cerrar sesión: ${e.message}")
         }
     }
 
     // ==================== USERS ====================
-
     actual suspend fun insertUser(token: String, userData: UserData): UserResponse {
         return userAction("insert", token, userData)
     }
@@ -114,12 +112,22 @@ actual class ApiClient actual constructor() {
 
     actual suspend fun listUsers(token: String): UsersListResponse {
         return try {
-            client.post(AppConfig.getApiUsersUrl("list", true)) {
+            val body = ApiClientHelper.encryptRequestIfEnabled(
+                EmptyRequest(),
+                EmptyRequest.serializer()
+            )
+
+            val response: HttpResponse = client.post(AppConfig.getApiUsersUrl("list", true)) {
                 contentType(ContentType.Application.Json)
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-                setBody(emptyMap<String, String>())
-            }.body()
+                setBody(body)
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                UsersListResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error al listar usuarios: ${e.message}")
         }
@@ -127,12 +135,22 @@ actual class ApiClient actual constructor() {
 
     actual suspend fun searchUsers(token: String, searchParams: UserSearchParams): UsersListResponse {
         return try {
-            client.post(AppConfig.getApiUsersUrl("search", true)) {
+            val body = ApiClientHelper.encryptRequestIfEnabled(
+                searchParams,
+                UserSearchParams.serializer()
+            )
+
+            val response: HttpResponse = client.post(AppConfig.getApiUsersUrl("search", true)) {
                 contentType(ContentType.Application.Json)
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-                setBody(searchParams)
-            }.body()
+                setBody(body)
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                UsersListResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error al buscar usuarios: ${e.message}")
         }
@@ -140,26 +158,40 @@ actual class ApiClient actual constructor() {
 
     private suspend fun userAction(action: String, token: String, userData: UserData): UserResponse {
         return try {
-            client.post(AppConfig.getApiUsersUrl(action, true)) {
+            val body = ApiClientHelper.encryptRequestIfEnabled(
+                userData,
+                UserData.serializer()
+            )
+
+            val response: HttpResponse = client.post(AppConfig.getApiUsersUrl(action, true)) {
                 contentType(ContentType.Application.Json)
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-                setBody(userData)
-            }.body()
+                setBody(body)
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                UserResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error en $action usuario: ${e.message}")
         }
     }
 
     // ==================== CATALOG ====================
-
     actual suspend fun getCatalog(token: String): CatalogResponse {
         return try {
-            client.post(AppConfig.getApiCatalogUrl(true)) {
+            val response: HttpResponse = client.post(AppConfig.getApiCatalogUrl(true)) {
                 contentType(ContentType.Application.Json)
                 headers.append("x-api-key", AppConfig.getApiKey())
                 headers.append("Authorization", "Bearer $token")
-            }.body()
+            }
+
+            ApiClientHelper.decryptResponseIfNeeded(
+                response.bodyAsText(),
+                CatalogResponse.serializer()
+            )
         } catch (e: Exception) {
             throw Exception("Error al obtener catálogo: ${e.message}")
         }
