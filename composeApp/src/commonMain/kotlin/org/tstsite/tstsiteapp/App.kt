@@ -14,35 +14,52 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.tstsite.tstsiteapp.model.*
 import org.tstsite.tstsiteapp.network.ApiClient
 
+/**
+ * 📱 Componente principal de la aplicación.
+ *
+ * Esta función Composable define la interfaz de usuario de demostración
+ * para interactuar con la API de TstSite. Permite probar las funcionalidades
+ * de autenticación, gestión de usuarios y consulta de catálogo.
+ */
 @Composable
 @Preview
 fun App() {
     MaterialTheme {
+        // 🔑 Estado del token de autenticación. Nulo si no hay sesión iniciada.
         var token by remember { mutableStateOf<String?>(null) }
+        // 📝 Mensaje de resultado de las operaciones de la API.
         var resultado by remember { mutableStateOf("") }
+        // 🔄 Indicador de carga para las operaciones asíncronas.
         var loading by remember { mutableStateOf(false) }
+
+        // 🌐 Instancia del cliente API para realizar las llamadas.
         val apiClient = remember { ApiClient() }
+        // 🚀 Scope para lanzar corrutinas en el contexto de la UI.
         val coroutineScope = rememberCoroutineScope()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState()), // Permite scroll si el contenido es largo
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp) // Espacio entre elementos
         ) {
             Text(
                 "TstSite API Demo",
                 style = MaterialTheme.typography.headlineMedium
             )
 
-            // ==================== AUTH ====================
+            // ==================== 🔑 AUTENTICACIÓN 🔑 ====================
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Autenticación", style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    /**
+                     * ➡️ Botón para iniciar sesión.
+                     * Realiza una llamada a `apiClient.login` con credenciales de prueba.
+                     */
                     Button(
                         onClick = {
                             loading = true
@@ -66,11 +83,15 @@ fun App() {
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !loading
+                        enabled = !loading // Deshabilita el botón durante la carga
                     ) {
                         Text("1. Login")
                     }
 
+                    /**
+                     * 🛡️ Botón para validar el token actual.
+                     * Llama a `apiClient.validate` usando el token obtenido en el login.
+                     */
                     Button(
                         onClick = {
                             token?.let {
@@ -92,11 +113,15 @@ fun App() {
                             } ?: run { resultado = "⚠️ Primero haz login" }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !loading && token != null
+                        enabled = !loading && token != null // Requiere token y no estar cargando
                     ) {
                         Text("2. Validar Token")
                     }
 
+                    /**
+                     * 👤 Botón para ver el perfil del usuario.
+                     * Llama a `apiClient.profile` con el token actual.
+                     */
                     Button(
                         onClick = {
                             token?.let {
@@ -123,6 +148,10 @@ fun App() {
                         Text("3. Ver Perfil")
                     }
 
+                    /**
+                     * 🚪 Botón para cerrar la sesión.
+                     * Llama a `apiClient.logout` y limpia el token local.
+                     */
                     Button(
                         onClick = {
                             token?.let {
@@ -131,7 +160,7 @@ fun App() {
                                     try {
                                         val response = apiClient.logout(it)
                                         resultado = "✅ ${response.message}"
-                                        token = null
+                                        token = null // Limpia el token al cerrar sesión
                                     } catch (e: Exception) {
                                         resultado = "❌ Error logout: ${e.message}"
                                     } finally {
@@ -143,7 +172,7 @@ fun App() {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !loading && token != null,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
+                            containerColor = MaterialTheme.colorScheme.error // Color rojo para logout
                         )
                     ) {
                         Text("4. Logout")
@@ -151,12 +180,16 @@ fun App() {
                 }
             }
 
-            // ==================== USERS ====================
+            // ==================== 👥 GESTIÓN DE USUARIOS 👥 ====================
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Gestión de Usuarios", style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    /**
+                     * 📜 Botón para listar todos los usuarios.
+                     * Llama a `apiClient.listUsers`.
+                     */
                     Button(
                         onClick = {
                             token?.let {
@@ -166,7 +199,7 @@ fun App() {
                                         val response = apiClient.listUsers(it)
                                         resultado = """
                                             ✅ Usuarios: ${response.usuarios.size}
-                                            ${response.usuarios.take(3).joinToString("\n") { u -> 
+                                            ${response.usuarios.take(3).joinToString("\n") { u ->
                                                 "- ${u.usuario} (${u.perfil})"
                                             }}
                                         """.trimIndent()
@@ -184,6 +217,10 @@ fun App() {
                         Text("5. Listar Usuarios")
                     }
 
+                    /**
+                     * 🔍 Botón para buscar usuarios con perfil "Admin".
+                     * Llama a `apiClient.searchUsers` con un filtro.
+                     */
                     Button(
                         onClick = {
                             token?.let {
@@ -196,7 +233,7 @@ fun App() {
                                         )
                                         resultado = """
                                             ✅ Admins encontrados: ${response.usuarios.size}
-                                            ${response.usuarios.joinToString("\n") { u -> 
+                                            ${response.usuarios.joinToString("\n") { u ->
                                                 "- ${u.usuario}"
                                             }}
                                         """.trimIndent()
@@ -216,12 +253,16 @@ fun App() {
                 }
             }
 
-            // ==================== CATALOG ====================
+            // ==================== 📚 CATÁLOGO 📚 ====================
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Catálogo", style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    /**
+                     * 📦 Botón para obtener el catálogo de productos.
+                     * Llama a `apiClient.getCatalog`.
+                     */
                     Button(
                         onClick = {
                             token?.let {
@@ -232,7 +273,7 @@ fun App() {
                                         resultado = """
                                             ✅ Catálogo obtenido
                                             Categorías: ${response.total_categorias}
-                                            ${response.catalogo.take(3).joinToString("\n") { cat -> 
+                                            ${response.catalogo.take(3).joinToString("\n") { cat ->
                                                 "- ${cat.nombre} (${cat.productos.size} productos)"
                                             }}
                                         """.trimIndent()
@@ -252,11 +293,13 @@ fun App() {
                 }
             }
 
-            // ==================== RESULTADO ====================
+            // ==================== 📊 RESULTADO Y ESTADO ====================
+            // Indicador de carga visible cuando `loading` es true.
             if (loading) {
                 CircularProgressIndicator()
             }
 
+            // Muestra el mensaje de `resultado` si no está vacío.
             AnimatedVisibility(resultado.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -272,6 +315,7 @@ fun App() {
                 }
             }
 
+            // Muestra el estado actual del token.
             Text(
                 "Token: ${if (token != null) "✅ Guardado" else "❌ No disponible"}",
                 style = MaterialTheme.typography.bodySmall,
@@ -280,85 +324,3 @@ fun App() {
         }
     }
 }
-/*
-package org.tstsite.tstsiteapp
-
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
-import tstsiteapp.composeapp.generated.resources.Res
-import tstsiteapp.composeapp.generated.resources.compose_multiplatform
-import org.tstsite.tstsiteapp.model.SesionRequest
-import org.tstsite.tstsiteapp.model.SesionResponse
-import org.tstsite.tstsiteapp.network.ApiClient
-
-@Composable
-@Preview
-fun App() {
-    MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        var resultMsj by remember { mutableStateOf("") }
-        val apiClient = remember { ApiClient() }
-        var responseSesion by remember { mutableStateOf<SesionResponse?>(null) }
-        val coroutineScope = rememberCoroutineScope()
-
-        Column(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = {
-                showContent = !showContent
-
-                coroutineScope.launch {
-                    try {
-                        val sesionRequest = SesionRequest("adminTstSite", "adminBlasco86")
-                        responseSesion = apiClient.login(sesionRequest)
-                        resultMsj = "Sesión iniciada"
-
-                    } catch (e: Exception) {
-                        //e.printStackTrace()
-                        //resultMsj = "Error al desencriptar: ${e.message}"
-                        resultMsj = "Error al iniciar sesión: ${e.message}"
-                    }
-                }
-            }) {
-                Text("Click me!")
-            }
-
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
-
-
-                    responseSesion?.user?.let { user ->
-                        Text("Perfil: ${user.perfil}")
-                        Text("Usuario: ${user.usuario}")
-                    }
-                    Text(resultMsj)
-                }
-            }
-        }
-    }
-}
-*/
