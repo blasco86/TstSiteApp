@@ -4,8 +4,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-// ==================== AUTH ====================
+// ==================== 🔑 AUTENTICACIÓN 🔑 ====================
 
+/**
+ * 📦 Wrapper para la respuesta cruda del endpoint de login.
+ * Contiene todos los posibles campos que puede devolver la API,
+ * antes de ser procesados y convertidos a un [SesionResponse] limpio.
+ */
 @Serializable
 data class LoginResponseWrapper(
     val message: String? = null,
@@ -21,6 +26,10 @@ data class LoginResponseWrapper(
     val detalles: DetalleUsuarioLogin? = null
 )
 
+/**
+ *  sesión de usuario final.
+ * Contiene el token y la información esencial del usuario.
+ */
 @Serializable
 data class SesionResponse(
     val token: String?,
@@ -28,6 +37,9 @@ data class SesionResponse(
     val user: UsuarioLogin?
 )
 
+/**
+ * 🧑‍💻 Información del usuario que ha iniciado sesión.
+ */
 @Serializable
 data class UsuarioLogin(
     val idUsuario: Int,
@@ -38,6 +50,9 @@ data class UsuarioLogin(
     val detalles: DetalleUsuarioLogin? = null
 )
 
+/**
+ * ℹ️ Detalles adicionales del usuario que ha iniciado sesión.
+ */
 @Serializable
 data class DetalleUsuarioLogin(
     val nombre: String? = null,
@@ -48,6 +63,11 @@ data class DetalleUsuarioLogin(
     val fechaNacimiento: String? = null
 )
 
+/**
+ * 📥 Petición para iniciar sesión.
+ * @property username Nombre de usuario.
+ * @property password Contraseña del usuario.
+ */
 @Serializable
 data class SesionRequest(
     @SerialName("username")
@@ -55,6 +75,11 @@ data class SesionRequest(
     val password: String
 )
 
+/**
+ * 🛡️ Respuesta de la validación de un token.
+ * @property valid `true` si el token es válido, `false` si no lo es.
+ * @property user Payload del token si es válido.
+ */
 @Serializable
 data class ValidateResponse(
     val valid: Boolean,
@@ -63,18 +88,25 @@ data class ValidateResponse(
     val mensaje: String? = null
 )
 
+/**
+ * 📜 Contenido (payload) de un token JWT.
+ * Contiene la información estándar de un token.
+ */
 @Serializable
 data class TokenPayload(
-    val sub: Int? = null,
+    val sub: Int? = null, // Subject (ID de usuario)
     val username: String? = null,
     val role: String? = null,
-    val iat: Long,
-    val exp: Long,
-    val jti: String,
-    val iss: String,
-    val aud: String
+    val iat: Long, // Issued At
+    val exp: Long, // Expiration Time
+    val jti: String, // JWT ID
+    val iss: String, // Issuer
+    val aud: String  // Audience
 )
 
+/**
+ * 👤 Respuesta al solicitar el perfil de usuario.
+ */
 @Serializable
 data class ProfileResponse(
     val resultado: String,
@@ -82,14 +114,21 @@ data class ProfileResponse(
     val user: TokenPayload
 )
 
+/**
+ * 🚪 Respuesta al cerrar sesión.
+ */
 @Serializable
 data class LogoutResponse(
     val resultado: String,
     val message: String
 )
 
-// ==================== USERS ====================
+// ==================== 👥 USUARIOS 👥 ====================
 
+/**
+ * 📝 Datos para crear o actualizar un usuario.
+ * Todos los campos son opcionales para permitir actualizaciones parciales.
+ */
 @Serializable
 data class UserData(
     val usuario: String? = null,
@@ -99,6 +138,9 @@ data class UserData(
     val detalles: DetalleUsuario? = null
 )
 
+/**
+ * ℹ️ Detalles adicionales de un usuario.
+ */
 @Serializable
 data class DetalleUsuario(
     val nombre: String? = null,
@@ -109,6 +151,9 @@ data class DetalleUsuario(
     val fecha_nacimiento: String? = null
 )
 
+/**
+ * ✅ Respuesta genérica para operaciones de usuario (crear, leer, actualizar, borrar).
+ */
 @Serializable
 data class UserResponse(
     val resultado: String,
@@ -117,6 +162,9 @@ data class UserResponse(
     val usuario: UserInfo? = null
 )
 
+/**
+ * 🧑‍💻 Información detallada de un usuario del sistema.
+ */
 @Serializable
 data class UserInfo(
     val id: Int,
@@ -127,12 +175,19 @@ data class UserInfo(
     val detalles: DetalleUsuario? = null
 )
 
+/**
+ * 📜 Respuesta que contiene una lista de usuarios.
+ */
 @Serializable
 data class UsersListResponse(
     val resultado: String,
     val usuarios: List<UserInfo>
 )
 
+/**
+ * 🔍 Parámetros para buscar usuarios.
+ * Los campos nulos no se tienen en cuenta en la búsqueda.
+ */
 @Serializable
 data class UserSearchParams(
     val usuario: String? = null,
@@ -140,8 +195,11 @@ data class UserSearchParams(
     val perfil: String? = null
 )
 
-// ==================== CATALOG ====================
+// ==================== 📚 CATÁLOGO 📚 ====================
 
+/**
+ * 🗂️ Respuesta que contiene el catálogo completo de productos.
+ */
 @Serializable
 data class CatalogResponse(
     val resultado: String,
@@ -149,6 +207,10 @@ data class CatalogResponse(
     val catalogo: List<TipoProducto>
 )
 
+/**
+ * 📂 Representa una categoría o tipo de producto.
+ * Puede contener sub-tipos, creando una estructura de árbol.
+ */
 @Serializable
 data class TipoProducto(
     val id: Int,
@@ -159,6 +221,10 @@ data class TipoProducto(
     val subtipos: List<TipoProducto>? = null
 )
 
+/**
+ * 📦 Representa un producto individual dentro de un tipo.
+ * @property atributos Un mapa flexible para cualquier tipo de dato adicional.
+ */
 @Serializable
 data class Producto(
     val id: Int,
@@ -167,8 +233,11 @@ data class Producto(
     val atributos: Map<String, JsonElement> = emptyMap()
 )
 
-// ==================== COMMON ====================
+// ==================== ⚙️ COMÚN ⚙️ ====================
 
+/**
+ * ❌ Modelo para errores de la API.
+ */
 @Serializable
 data class ApiError(
     val resultado: String,
@@ -176,5 +245,10 @@ data class ApiError(
     val detalle: String? = null
 )
 
+/**
+ * 텅 Petición vacía.
+ * Se utiliza en endpoints POST que no requieren enviar datos en el cuerpo,
+ * pero que necesitan un cuerpo para el cifrado.
+ */
 @Serializable
 class EmptyRequest
