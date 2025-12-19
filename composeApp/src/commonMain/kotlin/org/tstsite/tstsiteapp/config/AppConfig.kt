@@ -40,7 +40,7 @@ object AppConfig {
 
     // --- Gestión de Entornos ---
     // true = usar entorno de Desarrollo (DEV), false = usar entorno de Testing (TST)
-    private const val IS_DEV = true
+    private const val IS_DEV = false
 
     private const val SERVICE = "api"
 
