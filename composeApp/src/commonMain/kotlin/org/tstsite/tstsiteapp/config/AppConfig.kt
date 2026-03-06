@@ -5,30 +5,25 @@ import org.tstsite.tstsiteapp.utils.crypto.Cryptor
 /**
  * ⚙️ Objeto de configuración central de la aplicación.
  *
- * Contiene todas las constantes, claves y URLs necesarias para
- * que la aplicación funcione correctamente en diferentes entornos.
+ * La API Key ha sido eliminada del cliente. El acceso a la API se realiza
+ * exclusivamente mediante JWT obtenido tras el login del usuario.
+ *
+ * El único secreto que permanece en el cliente es la SECRET_KEY para
+ * el cifrado de payloads (ENCRYPTION_ENABLED), que protege el contenido
+ * del payload en tránsito, no el acceso a la API.
  */
 object AppConfig {
-    // --- Claves de Cifrado ---
+    // --- Claves de Cifrado de Payload ---
     private const val FERNET_KEY = "vlKu87oIFmDRvkvPvNlAL7qne6MQzxYvIjWm646hR1Y="
     private const val SECRET_KEY = "ENC(gAAAAABpOrq7l4K9Mc7MWlhsUJSfgNJWRag781be3t2ojKn7ij6TMPp_lT5DVDZE_fGx9UmA0yLkHaxPAQafaytb6Z4nlQqPXWtHTXQsAmTwVmOBklrDTcRqexpUji2Stw1W16mLN32i)"
-    private const val ENCRYPTED_API_KEY = "ENC(gAAAAABpQz0yB2TqCSTbgPgQ4iVnaxKijRZOcpwthBvmLhnccrDJufNkxzZAzIsNCOUvQHzzt5J5gJEGHEhWIKO7AXU3d8Tvh2Iv1ARyLpkEuY5Go9C8rbaJLEkzRg0F0MCfeiX59kXu)"
     private val cryptor = Cryptor(FERNET_KEY)
 
     /**
-     * 🔐 **FLAG GLOBAL DE ENCRIPTACIÓN**
-     * - `true`: Usa encriptación de payloads (debe coincidir con la configuración de la API).
-     * - `false`: Envía datos sin encriptar (recomendado para desarrollo y depuración).
+     * 🔐 **FLAG GLOBAL DE ENCRIPTACIÓN DE PAYLOAD**
+     * - `true`: Cifra el cuerpo de cada petición (protege datos en tránsito).
+     * - `false`: Envía datos sin cifrar (solo para desarrollo/depuración).
      */
     const val ENCRYPTION_ENABLED = true
-
-    /**
-     * 🔑 Obtiene la API Key desencriptada.
-     * @return La API Key lista para usar en las cabeceras.
-     */
-    suspend fun getApiKey(): String {
-        return cryptor.decryptValue(ENCRYPTED_API_KEY)
-    }
 
     /**
      * 🤫 Obtiene la clave secreta para el cifrado de payloads.
@@ -39,14 +34,11 @@ object AppConfig {
     }
 
     // --- Gestión de Entornos ---
-    // true = usar entorno de Desarrollo (DEV), false = usar entorno de Testing (TST)
     private const val IS_DEV = false
-
     private const val SERVICE = "api"
 
-    // URLs base para los diferentes entornos
     private const val BASE_URL_DEV = "http://localhost:3000"
-    private const val BASE_URL_DEV_ANDROID = "http://10.0.2.2:3000" // IP especial para emulador Android
+    private const val BASE_URL_DEV_ANDROID = "http://10.0.2.2:3000"
     private const val BASE_URL_TST = "https://tstsite.alwaysdata.net"
 
     // --- Endpoints de la API ---
@@ -60,9 +52,9 @@ object AppConfig {
     private const val ROUTES_CATALOG = "catalog"
 
     /**
-     * 🌍 Devuelve la URL base correcta según el entorno y la plataforma.
-     * @param isAndroid Indica si la ejecución es en un dispositivo/emulador Android.
-     * @return La URL base para las peticiones a la API.
+     * 🌐 Obtiene la URL base de la API según el entorno de desarrollo y la plataforma.
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL base de la API.
      */
     fun getBaseUrl(isAndroid: Boolean = false): String {
         return if (IS_DEV) {
@@ -73,57 +65,51 @@ object AppConfig {
     }
 
     /**
-     * 🚪 Construye la URL para el endpoint de login.
-     * @param isAndroid Indica si la ejecución es en Android.
-     * @return La URL completa para iniciar sesión.
+     * 🔑 Obtiene la URL para el endpoint de login de la API.
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL completa para el login.
      */
-    fun getApiLoginUrl(isAndroid: Boolean = false): String {
-        return "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_LOGIN"
-    }
+    fun getApiLoginUrl(isAndroid: Boolean = false) =
+        "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_LOGIN"
 
     /**
-     * 🛡️ Construye la URL para el endpoint de validación de token.
-     * @param isAndroid Indica si la ejecución es en Android.
-     * @return La URL completa para validar un token.
+     * 🛡️ Obtiene la URL para el endpoint de validación de token de la API.
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL completa para la validación de token.
      */
-    fun getApiValidateUrl(isAndroid: Boolean = false): String {
-        return "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_VALIDATE"
-    }
+    fun getApiValidateUrl(isAndroid: Boolean = false) =
+        "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_VALIDATE"
 
     /**
-     * 👤 Construye la URL para el endpoint de perfil de usuario.
-     * @param isAndroid Indica si la ejecución es en Android.
-     * @return La URL completa para obtener el perfil.
+     * 👤 Obtiene la URL para el endpoint de perfil de usuario de la API.
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL completa para el perfil de usuario.
      */
-    fun getApiProfileUrl(isAndroid: Boolean = false): String {
-        return "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_PROFILE"
-    }
+    fun getApiProfileUrl(isAndroid: Boolean = false) =
+        "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_PROFILE"
 
     /**
-     * 🚪 Construye la URL para el endpoint de cierre de sesión.
-     * @param isAndroid Indica si la ejecución es en Android.
-     * @return La URL completa para cerrar sesión.
+     * 🚪 Obtiene la URL para el endpoint de logout de la API.
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL completa para el logout.
      */
-    fun getApiLogoutUrl(isAndroid: Boolean = false): String {
-        return "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_LOGOUT"
-    }
+    fun getApiLogoutUrl(isAndroid: Boolean = false) =
+        "${getBaseUrl(isAndroid)}/$ROUTES_AUTH/$AUTH_LOGOUT"
 
     /**
-     * 👥 Construye la URL para los endpoints de gestión de usuarios.
-     * @param accion La acción específica a realizar (ej: "insert", "list").
-     * @param isAndroid Indica si la ejecución es en Android.
-     * @return La URL completa para la acción de usuario.
+     * 👥 Obtiene la URL para los endpoints de usuarios de la API.
+     * @param action La acción específica dentro del recurso de usuarios (ej. "create", "delete").
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL completa para la acción de usuarios.
      */
-    fun getApiUsersUrl(accion: String, isAndroid: Boolean = false): String {
-        return "${getBaseUrl(isAndroid)}/$ROUTES_USERS/$accion"
-    }
+    fun getApiUsersUrl(action: String, isAndroid: Boolean = false) =
+        "${getBaseUrl(isAndroid)}/$ROUTES_USERS/$action"
 
     /**
-     * 📚 Construye la URL para el endpoint del catálogo.
-     * @param isAndroid Indica si la ejecución es en Android.
-     * @return La URL completa para obtener el catálogo.
+     * 📚 Obtiene la URL para el endpoint de catálogo de la API.
+     * @param isAndroid `true` si la llamada se realiza desde un emulador Android, `false` en caso contrario.
+     * @return La URL completa para el catálogo.
      */
-    fun getApiCatalogUrl(isAndroid: Boolean = false): String {
-        return "${getBaseUrl(isAndroid)}/$ROUTES_CATALOG"
-    }
+    fun getApiCatalogUrl(isAndroid: Boolean = false) =
+        "${getBaseUrl(isAndroid)}/$ROUTES_CATALOG"
 }
