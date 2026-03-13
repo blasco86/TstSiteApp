@@ -16,7 +16,7 @@ kotlin = "2.3.10"
 kotlinx-coroutines = "1.10.2"
 ktorClientCore = "3.4.1"
 slf4j = "2.0.17"
-buildConfig = "6.0.8"
+buildConfig = "6.0.9"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
