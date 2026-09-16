@@ -15,9 +15,9 @@ composeMultiplatform = "1.12.0"
 junit = "4.13.2"
 kotlin = "2.4.20"
 kotlinx-coroutines = "1.11.0"
-ktorClientCore = "3.5.2"
+ktorClientCore = "3.6.0"
 slf4j = "2.0.19"
-buildConfig = "6.0.10"
+buildConfig = "6.1.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
