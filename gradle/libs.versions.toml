@@ -15,7 +15,7 @@ composeMultiplatform = "1.12.2"
 junit = "4.13.2"
 kotlin = "2.4.21"
 kotlinx-coroutines = "1.11.0"
-ktorClientCore = "3.6.0"
+ktorClientCore = "3.6.1"
 slf4j = "2.0.20"
 buildConfig = "6.1.2"
 
